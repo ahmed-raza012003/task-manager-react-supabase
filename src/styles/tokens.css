@@ -1,0 +1,78 @@
+:root,
+[data-theme='light'] {
+  --bg-canvas: #faf9f6;
+  --bg-surface: #ffffff;
+  --bg-surface-raised: #ffffff;
+  --bg-hover: #f2f0ea;
+  --bg-inset: #f4f2ec;
+  --border-subtle: #e7e4dc;
+  --border-strong: #d8d4c8;
+  --text-primary: #1c1b1a;
+  --text-secondary: #6b6862;
+  --text-tertiary: #99958c;
+  --text-on-accent: #ffffff;
+
+  --accent: #6d5ef5;
+  --accent-hover: #5c4dee;
+  --accent-subtle-bg: #eeebff;
+  --accent-subtle-text: #5947d6;
+
+  --success: #1f9d66;
+  --success-subtle-bg: #e5f6ee;
+  --warning: #d97b15;
+  --warning-subtle-bg: #fbf0e0;
+  --danger: #e0483e;
+  --danger-subtle-bg: #fceae8;
+
+  --priority-urgent: #e0483e;
+  --priority-high: #d97b15;
+  --priority-medium: #d9a515;
+  --priority-low: #8a8780;
+
+  --shadow-color: 28 27 26;
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.06);
+  --shadow-md: 0 4px 12px rgb(var(--shadow-color) / 0.08), 0 1px 3px rgb(var(--shadow-color) / 0.06);
+  --shadow-lg: 0 12px 32px rgb(var(--shadow-color) / 0.12), 0 2px 6px rgb(var(--shadow-color) / 0.06);
+
+  --ring-accent: 0 0 0 3px rgb(109 94 245 / 0.25);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-canvas: #16151a;
+  --bg-surface: #1e1d24;
+  --bg-surface-raised: #26242d;
+  --bg-hover: #2c2a34;
+  --bg-inset: #131217;
+  --border-subtle: #2e2c36;
+  --border-strong: #3a3844;
+  --text-primary: #f2f1f5;
+  --text-secondary: #a8a5b3;
+  --text-tertiary: #706d7a;
+  --text-on-accent: #ffffff;
+
+  --accent: #8b7cfb;
+  --accent-hover: #9d90fc;
+  --accent-subtle-bg: #2a2650;
+  --accent-subtle-text: #b3a7ff;
+
+  --success: #3ec98a;
+  --success-subtle-bg: #163326;
+  --warning: #f0993d;
+  --warning-subtle-bg: #3a2a13;
+  --danger: #f0766c;
+  --danger-subtle-bg: #3a1c1a;
+
+  --priority-urgent: #f0766c;
+  --priority-high: #f0993d;
+  --priority-medium: #ecc655;
+  --priority-low: #8f8c9a;
+
+  --shadow-color: 0 0 0;
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.24), inset 0 1px 0 rgb(255 255 255 / 0.03);
+  --shadow-md: 0 4px 14px rgb(var(--shadow-color) / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-lg: 0 16px 40px rgb(var(--shadow-color) / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.05);
+
+  --ring-accent: 0 0 0 3px rgb(139 124 251 / 0.35);
+  color-scheme: dark;
+}
