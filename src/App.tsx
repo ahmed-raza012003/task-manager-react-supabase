@@ -10,10 +10,12 @@ import { ProjectFormDialog } from '@/components/projects/ProjectForm'
 import { CommandPalette } from '@/components/command/CommandPalette'
 import { GlobalSearch } from '@/components/command/GlobalSearch'
 import { ShortcutsHelpDialog } from '@/components/command/ShortcutsHelpDialog'
+import { LoginScreen } from '@/components/auth/LoginScreen'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useReminderScheduler } from '@/hooks/useReminderScheduler'
-import { useSyncBootstrap } from '@/hooks/useSyncBootstrap'
-import { seedDemoData } from '@/data/seed'
+import { initAuthListener } from '@/data/auth'
+import { syncConfigured } from '@/lib/supabaseClient'
+import { useAuthStore } from '@/stores/authStore'
 import { Skeleton } from '@/components/common/Skeleton'
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
@@ -42,11 +44,6 @@ function PageFallback() {
 function GlobalProviders() {
   useKeyboardShortcuts()
   useReminderScheduler()
-  useSyncBootstrap()
-
-  useEffect(() => {
-    seedDemoData()
-  }, [])
 
   return (
     <>
@@ -61,29 +58,63 @@ function GlobalProviders() {
   )
 }
 
+function AppRoutes() {
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/today" element={<TodayPage />} />
+          <Route path="/tasks" element={<MyTasksPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/labels" element={<LabelsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/trash" element={<TrashPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  )
+}
+
+function AppGate() {
+  const session = useAuthStore((s) => s.session)
+  const initialized = useAuthStore((s) => s.initialized)
+
+  useEffect(() => {
+    const unsubscribe = initAuthListener()
+    return unsubscribe
+  }, [])
+
+  if (!syncConfigured) {
+    return (
+      <>
+        <GlobalProviders />
+        <AppRoutes />
+      </>
+    )
+  }
+
+  if (!initialized) return null
+  if (!session) return <LoginScreen />
+
+  return (
+    <>
+      <GlobalProviders />
+      <AppRoutes />
+    </>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <GlobalProviders />
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/today" element={<TodayPage />} />
-              <Route path="/tasks" element={<MyTasksPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/notes" element={<NotesPage />} />
-              <Route path="/labels" element={<LabelsPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/trash" element={<TrashPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <AppGate />
       </TooltipProvider>
     </ThemeProvider>
   )

@@ -1,12 +1,11 @@
 -- Flowline sync schema
 -- Run this once in your Supabase project's SQL Editor (Project -> SQL Editor -> New query -> paste -> Run).
 --
--- Security model: there is no per-user login. Every row carries a `workspace_id`
--- (a random 122-bit code generated on-device). The client always filters by that
--- code, and it is the only thing that gates access to a workspace's data — the
--- same trust model as a private "anyone with the link" share. RLS below simply
--- allows the anon key to read/write; it does not (and cannot, without real auth)
--- verify that the caller "owns" the workspace_id it supplies.
+-- Security model: every row carries a `workspace_id`, which is set to the
+-- signed-in user's auth UID. RLS enforces that a request can only read/write
+-- rows where workspace_id matches auth.uid() — i.e. real per-account isolation
+-- backed by Supabase Auth (email + password), not an unguessable-code trust
+-- model.
 
 create table if not exists projects (
   id text not null,
@@ -126,8 +125,8 @@ create index if not exists labels_workspace_idx on labels (workspace_id);
 create index if not exists notes_workspace_idx on notes (workspace_id);
 create index if not exists time_entries_workspace_idx on time_entries (workspace_id);
 
--- Row Level Security: allow the anon key full access. The workspace_id code is
--- the real access boundary (enforced client-side), not this policy.
+-- Row Level Security: a signed-in user may only touch rows whose workspace_id
+-- equals their own auth UID. Unauthenticated (anon) requests get nothing.
 alter table projects enable row level security;
 alter table kanban_columns enable row level security;
 alter table tasks enable row level security;
@@ -136,13 +135,13 @@ alter table labels enable row level security;
 alter table notes enable row level security;
 alter table time_entries enable row level security;
 
-create policy "anon full access" on projects for all using (true) with check (true);
-create policy "anon full access" on kanban_columns for all using (true) with check (true);
-create policy "anon full access" on tasks for all using (true) with check (true);
-create policy "anon full access" on checklist_items for all using (true) with check (true);
-create policy "anon full access" on labels for all using (true) with check (true);
-create policy "anon full access" on notes for all using (true) with check (true);
-create policy "anon full access" on time_entries for all using (true) with check (true);
+create policy "own workspace only" on projects for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on kanban_columns for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on tasks for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on checklist_items for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on labels for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on notes for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
+create policy "own workspace only" on time_entries for all using (auth.uid()::text = workspace_id) with check (auth.uid()::text = workspace_id);
 
 -- Realtime: let clients subscribe to live changes for instant cross-device sync.
 alter publication supabase_realtime add table projects;

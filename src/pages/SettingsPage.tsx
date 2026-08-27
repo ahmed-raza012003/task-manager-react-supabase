@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, RotateCcw, Trash2, Bell, Monitor, Moon, Sun, RefreshCw, Copy, Check, Cloud, CloudOff } from 'lucide-react'
+import { Download, Upload, RotateCcw, Trash2, Bell, Monitor, Moon, Sun, RefreshCw, Cloud, CloudOff, LogOut, KeyRound } from 'lucide-react'
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from '@/components/common/Tabs'
 import { Switch } from '@/components/common/Switch'
 import { Select } from '@/components/common/Select'
@@ -8,9 +8,10 @@ import { Input } from '@/components/common/Input'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { useSettings, updateSettings } from '@/data/settings'
 import { exportAllData, downloadExport, importData, resetAllData, emptyTrash } from '@/data/exportImport'
-import { pullAll, pushAllLocal, startRealtimeSync, stopRealtimeSync, syncConfigured } from '@/data/sync'
+import { pullAll, pushAllLocal, syncConfigured } from '@/data/sync'
+import { changePassword, signOut } from '@/data/auth'
+import { useAuthStore } from '@/stores/authStore'
 import { requestNotificationPermission, notificationsSupported } from '@/lib/notifications'
-import { createId } from '@/lib/id'
 import { toast } from '@/stores/toastStore'
 import { cn } from '@/lib/cn'
 import type { Priority, ThemeMode } from '@/data/types'
@@ -27,9 +28,10 @@ export default function SettingsPage() {
   const [resetOpen, setResetOpen] = useState(false)
   const [emptyTrashOpen, setEmptyTrashOpen] = useState(false)
   const [importBusy, setImportBusy] = useState(false)
-  const [joinCode, setJoinCode] = useState('')
-  const [copied, setCopied] = useState(false)
   const [syncBusy, setSyncBusy] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  const session = useAuthStore((s) => s.session)
 
   if (!settings) return null
 
@@ -63,7 +65,7 @@ export default function SettingsPage() {
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="productivity">Productivity</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="sync">Sync</TabsTrigger>
+          <TabsTrigger value="sync">Account &amp; Sync</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
@@ -190,8 +192,7 @@ export default function SettingsPage() {
               <div>
                 <p className="font-medium text-text-primary">Sync isn't configured for this deployment.</p>
                 <p className="mt-1 text-xs">
-                  Flowline is running purely local-first — all data stays on this device. To enable cross-device sync, a Supabase project URL
-                  and anon key need to be set at build time.
+                  Flowline is running purely local-first — all data stays on this device. No login is required.
                 </p>
               </div>
             </div>
@@ -200,124 +201,77 @@ export default function SettingsPage() {
               <div
                 className={cn(
                   'flex items-start gap-2 rounded-lg p-3 text-xs',
-                  settings.syncEnabled ? 'bg-success-subtle-bg text-success' : 'bg-inset text-text-secondary',
+                  session ? 'bg-success-subtle-bg text-success' : 'bg-inset text-text-secondary',
                 )}
               >
-                {settings.syncEnabled ? <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <CloudOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                {settings.syncEnabled
-                  ? 'Sync is on. Changes on this device push to your workspace, and changes elsewhere arrive live.'
-                  : 'Sync is off. This device only sees its own local data.'}
+                {session ? <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <CloudOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                {session
+                  ? `Signed in as ${session.user.email}. This device syncs live with any other device signed into the same account.`
+                  : 'Not signed in.'}
               </div>
 
-              <Field label="Enable sync" description="Push this device's data to your workspace and receive live updates from others.">
-                <Switch
-                  checked={settings.syncEnabled}
-                  onCheckedChange={async (v) => {
+              <Field label="Sync now" description="Manually push and pull, if you don't want to wait for the next automatic sync.">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={syncBusy}
+                  onClick={async () => {
                     setSyncBusy(true)
                     try {
-                      await updateSettings({ syncEnabled: v })
-                      if (v) {
-                        await pushAllLocal()
-                        await pullAll()
-                        await startRealtimeSync()
-                        toast('Sync enabled', 'This device is now syncing.')
-                      } else {
-                        stopRealtimeSync()
-                        toast('Sync disabled')
-                      }
+                      await pushAllLocal()
+                      await pullAll()
+                      toast('Synced')
                     } finally {
                       setSyncBusy(false)
                     }
                   }}
-                />
-              </Field>
-
-              <Field label="Workspace code" description="Enter this same code on another device to sync them together.">
-                <div className="flex items-center gap-2">
-                  <Input readOnly value={settings.workspaceId} className="w-56 font-mono text-xs" onFocus={(e) => e.target.select()} />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(settings.workspaceId)
-                      setCopied(true)
-                      window.setTimeout(() => setCopied(false), 1500)
-                    }}
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
-              </Field>
-
-              {settings.syncEnabled && (
-                <Field label="Sync now" description="Manually push and pull, if you don't want to wait for the next automatic sync.">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={syncBusy}
-                    onClick={async () => {
-                      setSyncBusy(true)
-                      try {
-                        await pushAllLocal()
-                        await pullAll()
-                        toast('Synced')
-                      } finally {
-                        setSyncBusy(false)
-                      }
-                    }}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Sync now
-                  </Button>
-                </Field>
-              )}
-
-              <div className="rounded-lg border border-border-subtle bg-surface p-4">
-                <h3 className="text-sm font-medium text-text-primary">Join a different workspace</h3>
-                <p className="mt-1 text-xs text-text-secondary">
-                  Paste a workspace code from another device to link them. This merges that workspace's data with what's already on this
-                  device — if this device already has data you don't want mixed in, reset it first (Data tab) before joining.
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <Input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="Paste workspace code…" className="flex-1 font-mono text-xs" />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!joinCode.trim() || syncBusy}
-                    onClick={async () => {
-                      setSyncBusy(true)
-                      try {
-                        stopRealtimeSync()
-                        await updateSettings({ workspaceId: joinCode.trim(), syncEnabled: true })
-                        await pullAll()
-                        await startRealtimeSync()
-                        toast('Joined workspace', 'Pulled in data from the shared workspace.')
-                        setJoinCode('')
-                      } finally {
-                        setSyncBusy(false)
-                      }
-                    }}
-                  >
-                    Join
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border-subtle bg-surface p-4">
-                <h3 className="text-sm font-medium text-text-primary">Start a new, separate workspace</h3>
-                <p className="mt-1 text-xs text-text-secondary">Generates a fresh workspace code, unlinking this device from any shared workspace.</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-3"
-                  onClick={async () => {
-                    stopRealtimeSync()
-                    await updateSettings({ workspaceId: createId(), syncEnabled: false })
-                    toast('New workspace created')
-                  }}
                 >
-                  New workspace
+                  <RefreshCw className="h-3.5 w-3.5" /> Sync now
                 </Button>
+              </Field>
+
+              <div className="rounded-lg border border-border-subtle bg-surface p-4">
+                <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-text-primary">
+                  <KeyRound className="h-3.5 w-3.5" /> Change password
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="password"
+                    minLength={6}
+                    placeholder="New password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={newPassword.length < 6 || passwordBusy}
+                    onClick={async () => {
+                      setPasswordBusy(true)
+                      try {
+                        const result = await changePassword(newPassword)
+                        if (result.success) {
+                          toast('Password changed')
+                          setNewPassword('')
+                        } else {
+                          toast('Could not change password', result.error, 'danger')
+                        }
+                      } finally {
+                        setPasswordBusy(false)
+                      }
+                    }}
+                  >
+                    Update
+                  </Button>
+                </div>
               </div>
+
+              <Field label="Sign out" description="You'll need your password again to sign back in on this device.">
+                <Button variant="secondary" size="sm" onClick={() => signOut()}>
+                  <LogOut className="h-3.5 w-3.5" /> Sign out
+                </Button>
+              </Field>
             </>
           )}
         </TabsContent>
@@ -371,10 +325,10 @@ export default function SettingsPage() {
             <p className="mt-1 text-xs text-text-tertiary">Version 1.0.0</p>
             <p className="mt-3 text-sm text-text-secondary">
               A local-first personal project and task manager. All data lives in your browser's IndexedDB storage, and the app works fully
-              offline with no account and no paid services required.
+              offline.
               {syncConfigured
-                ? ' Optional cross-device sync (Sync tab) is available for this deployment, backed by a free-tier Supabase project.'
-                : ' This deployment has no sync configured — data never leaves this device.'}
+                ? ' This deployment requires signing in and syncs across devices via a free-tier Supabase project.'
+                : ' This deployment has no sync configured — data never leaves this device, and no login is required.'}
             </p>
           </div>
         </TabsContent>
